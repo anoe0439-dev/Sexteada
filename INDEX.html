@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorteo Intercambio Regalos - Funcional</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
+        body { background: #f0f4f8; padding: 20px; }
+        .container { max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #2d3748; font-size: 22px; text-align: center; margin-bottom: 25px; }
+        input { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 15px; font-size: 16px; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
+        .btn-primary { background: #3182ce; color: white; }
+        .btn-secondary { background: #48bb78; color: white; }
+        .area { display: none; margin-top: 20px; }
+        .result { margin-top: 20px; padding: 15px; background: #edf2f7; border-radius: 8px; font-size: 18px; text-align: center; }
+        .admin-results { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+        .admin-item { padding: 10px; background: #f7fafc; border-radius: 6px; margin: 8px 0; }
+        .log { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; font-size: 14px; color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sorteo Intercambio de Regalos</h1>
+
+        <!-- Sección inicio -->
+        <div id="startArea">
+            <button id="goToParticipant" class="btn-primary">Soy Participante</button>
+            <button id="goToAdminLogin" class="btn-secondary">Soy Administrador</button>
+        </div>
+
+        <!-- Sección participante -->
+        <div id="participantArea" class="area">
+            <input type="text" id="participantName" placeholder="Escribe tu nombre exacto">
+            <button id="checkAssignment" class="btn-primary">Ver a quién regalar</button>
+            <button id="backFromParticipant" class="btn-secondary">Volver</button>
+            <div id="participantResult" class="result"></div>
+        </div>
+
+        <!-- Sección login admin -->
+        <div id="adminLoginArea" class="area">
+            <input type="password" id="adminPass" placeholder="Contraseña admin">
+            <button id="adminLogin" class="btn-primary">Ingresar</button>
+            <button id="backFromAdminLogin" class="btn-secondary">Volver</button>
+            <div id="loginError" class="result" style="background: #fed7d7; color: #c53030; display: none;"></div>
+        </div>
+
+        <!-- Sección admin -->
+        <div id="adminArea" class="area">
+            <button id="doDraw" class="btn-primary">Realizar Sorteo</button>
+            <div id="drawSuccess" class="result" style="background: #c6f6d5; color: #2f855a; display: none;"></div>
+            <div id="allResults" class="admin-results"></div>
+            <button id="backFromAdmin" class="btn-secondary">Volver</button>
+        </div>
+
+        <!-- Log para seguridad -->
+        <div class="log" id="log">Log: Todo listo para iniciar</div>
+    </div>
+
+    <script>
+        // Configuración (MODIFICA ESTOS DATOS!)
+        const ADMIN_PASSWORD = "sorteo2024"; // Cambia la contraseña
+        const PARTICIPANTS = ["Noe", "Erika", "Belén", "Miryam", "Dayana", "Ada"]; // Tu lista
+        const STORAGE_KEY = "giftExchange";
+
+        // Elementos
+        const startArea = document.getElementById("startArea");
+        const participantArea = document.getElementById("participantArea");
+        const adminLoginArea = document.getElementById("adminLoginArea");
+        const adminArea = document.getElementById("adminArea");
+
+        const goToParticipant = document.getElementById("goToParticipant");
+        const goToAdminLogin = document.getElementById("goToAdminLogin");
+        const backFromParticipant = document.getElementById("backFromParticipant");
+        const backFromAdminLogin = document.getElementById("backFromAdminLogin");
+        const backFromAdmin = document.getElementById("backFromAdmin");
+
+        const participantName = document.getElementById("participantName");
+        const checkAssignment = document.getElementById("checkAssignment");
+        const participantResult = document.getElementById("participantResult");
+
+        const adminPass = document.getElementById("adminPass");
+        const adminLogin = document.getElementById("adminLogin");
+        const loginError = document.getElementById("loginError");
+
+        const doDraw = document.getElementById("doDraw");
+        const drawSuccess = document.getElementById("drawSuccess");
+        const allResults = document.getElementById("allResults");
+
+        const log = document.getElementById("log");
+
+        // Función para agregar log
+        function addLog(msg) {
+            log.innerHTML += "<br>- " + new Date().toLocaleTimeString() + ": " + msg;
+        }
+
+        // Función para mostrar solo una área
+        function showArea(area) {
+            [startArea, participantArea, adminLoginArea, adminArea].forEach(a => a.style.display = "none");
+            area.style.display = "block";
+            // Limpiar mensajes
+            participantResult.textContent = "";
+            loginError.style.display = "none";
+            drawSuccess.style.display = "none";
+            participantName.value = "";
+            adminPass.value = "";
+            addLog("Cambiado a área: " + area.id);
+        }
+
+        // Función de sorteo simple y funcional
+        function drawPairings() {
+            addLog("Iniciando sorteo...");
+            let receivers = [...PARTICIPANTS];
+            
+            // Mezclar
+            for (let i = receivers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [receivers[i], receivers[j]] = [receivers[j], receivers[i]];
+            }
+
+            // Ajustar si hay auto-asignación
+            for (let i = 0; i < PARTICIPANTS.length; i++) {
+                if (PARTICIPANTS[i] === receivers[i]) {
+                    const j = (i + 1) % PARTICIPANTS.length;
+                    [receivers[i], receivers[j]] = [receivers[j], receivers[i]];
+                    addLog("Ajustado auto-asignación en posición " + i);
+                    break;
+                }
+            }
+
+            const pairings = PARTICIPANTS.map((giver, idx) => ({ giver, receiver: receivers[idx] }));
+            // Guardar sin problemas
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(pairings));
+                addLog("Parejas guardadas correctamente");
+            } catch (e) {
+                addLog("Advertencia: No se pudo guardar, pero se mostrarán resultados");
+            }
+            return pairings;
+        }
+
+        // Obtener parejas
+        function getPairings() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                return saved ? JSON.parse(saved) : null;
+            } catch (e) {
+                addLog("Error al cargar parejas guardadas");
+                return null;
+            }
+        }
+
+        // Eventos (todos simples y directos)
+        goToParticipant.addEventListener("click", () => showArea(participantArea));
+        goToAdminLogin.addEventListener("click", () => showArea(adminLoginArea));
+        backFromParticipant.addEventListener("click", () => showArea(startArea));
+        backFromAdminLogin.addEventListener("click", () => showArea(startArea));
+        backFromAdmin.addEventListener("click", () => showArea(startArea));
+
+        adminLogin.addEventListener("click", () => {
+            addLog("Intento de ingreso admin");
+            if (adminPass.value === ADMIN_PASSWORD) {
+                addLog("Ingreso admin correcto");
+                showArea(adminArea);
+                // Mostrar resultados si existen
+                const pairings = getPairings();
+                if (pairings) {
+                    allResults.innerHTML = pairings.map(p => `<div class="admin-item">${p.giver} → ${p.receiver}</div>`).join("");
+                    addLog("Mostrados resultados guardados");
+                }
+            } else {
+                addLog("Ingreso admin incorrecto");
+                loginError.textContent = "Contraseña incorrecta";
+                loginError.style.display = "block";
+            }
+        });
+
+        doDraw.addEventListener("click", () => {
+            addLog("Botón sorteo tocado - ejecutando...");
+            const pairings = drawPairings();
+            allResults.innerHTML = pairings.map(p => `<div class="admin-item">${p.giver} → ${p.receiver}</div>`).join("");
+            drawSuccess.textContent = "Sorteo realizado con éxito!";
+            drawSuccess.style.display = "block";
+            addLog("Sorteo terminado y mostrado");
+        });
+
+        checkAssignment.addEventListener("click", () => {
+            addLog("Verificación asignación participante");
+            const name = participantName.value.trim();
+            const pairings = getPairings();
+
+            if (!pairings) {
+                participantResult.textContent = "El sorteo aún no se ha realizado";
+                return;
+            }
+            if (!PARTICIPANTS.includes(name)) {
+                participantResult.textContent = "Nombre no encontrado - escribe lo exacto";
+                return;
+            }
+
+            const assignment = pairings.find(p => p.giver === name);
+            participantResult.textContent = `${name}, te toca regalar a → ${assignment.receiver}`;
+            addLog("Asignación mostrada a: " + name);
+        });
+
+        // Inicializar
+        addLog("Aplicación cargada correctamente");
+    </script>
+</body>
+</html>
